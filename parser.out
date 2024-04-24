@@ -1,0 +1,294 @@
+Created by PLY version 3.11 (http://www.dabeaz.com/ply)
+
+Unused terminals:
+
+    GEQ
+    LEQ
+    MINUS
+    NORM
+    PLUS
+    POWER
+    UNDERSCORE
+
+Grammar
+
+Rule 0     S' -> formula
+Rule 1     formula -> expression
+Rule 2     expression -> expression AND term
+Rule 3     expression -> term
+Rule 4     term -> temporal_expression
+Rule 5     term -> PROP
+Rule 6     temporal_expression -> G LBRACKET NUMBER COMMA NUMBER RBRACKET LPAREN expression RPAREN
+Rule 7     temporal_expression -> F LBRACKET NUMBER COMMA NUMBER RBRACKET LPAREN expression RPAREN
+
+Terminals, with rules where they appear
+
+AND                  : 2
+COMMA                : 6 7
+F                    : 7
+G                    : 6
+GEQ                  : 
+LBRACKET             : 6 7
+LEQ                  : 
+LPAREN               : 6 7
+MINUS                : 
+NORM                 : 
+NUMBER               : 6 6 7 7
+PLUS                 : 
+POWER                : 
+PROP                 : 5
+RBRACKET             : 6 7
+RPAREN               : 6 7
+UNDERSCORE           : 
+error                : 
+
+Nonterminals, with rules where they appear
+
+expression           : 1 2 6 7
+formula              : 0
+temporal_expression  : 4
+term                 : 2 3
+
+Parsing method: LALR
+
+state 0
+
+    (0) S' -> . formula
+    (1) formula -> . expression
+    (2) expression -> . expression AND term
+    (3) expression -> . term
+    (4) term -> . temporal_expression
+    (5) term -> . PROP
+    (6) temporal_expression -> . G LBRACKET NUMBER COMMA NUMBER RBRACKET LPAREN expression RPAREN
+    (7) temporal_expression -> . F LBRACKET NUMBER COMMA NUMBER RBRACKET LPAREN expression RPAREN
+
+    PROP            shift and go to state 5
+    G               shift and go to state 6
+    F               shift and go to state 7
+
+    formula                        shift and go to state 1
+    expression                     shift and go to state 2
+    term                           shift and go to state 3
+    temporal_expression            shift and go to state 4
+
+state 1
+
+    (0) S' -> formula .
+
+
+
+state 2
+
+    (1) formula -> expression .
+    (2) expression -> expression . AND term
+
+    $end            reduce using rule 1 (formula -> expression .)
+    AND             shift and go to state 8
+
+
+state 3
+
+    (3) expression -> term .
+
+    AND             reduce using rule 3 (expression -> term .)
+    $end            reduce using rule 3 (expression -> term .)
+    RPAREN          reduce using rule 3 (expression -> term .)
+
+
+state 4
+
+    (4) term -> temporal_expression .
+
+    AND             reduce using rule 4 (term -> temporal_expression .)
+    $end            reduce using rule 4 (term -> temporal_expression .)
+    RPAREN          reduce using rule 4 (term -> temporal_expression .)
+
+
+state 5
+
+    (5) term -> PROP .
+
+    AND             reduce using rule 5 (term -> PROP .)
+    $end            reduce using rule 5 (term -> PROP .)
+    RPAREN          reduce using rule 5 (term -> PROP .)
+
+
+state 6
+
+    (6) temporal_expression -> G . LBRACKET NUMBER COMMA NUMBER RBRACKET LPAREN expression RPAREN
+
+    LBRACKET        shift and go to state 9
+
+
+state 7
+
+    (7) temporal_expression -> F . LBRACKET NUMBER COMMA NUMBER RBRACKET LPAREN expression RPAREN
+
+    LBRACKET        shift and go to state 10
+
+
+state 8
+
+    (2) expression -> expression AND . term
+    (4) term -> . temporal_expression
+    (5) term -> . PROP
+    (6) temporal_expression -> . G LBRACKET NUMBER COMMA NUMBER RBRACKET LPAREN expression RPAREN
+    (7) temporal_expression -> . F LBRACKET NUMBER COMMA NUMBER RBRACKET LPAREN expression RPAREN
+
+    PROP            shift and go to state 5
+    G               shift and go to state 6
+    F               shift and go to state 7
+
+    term                           shift and go to state 11
+    temporal_expression            shift and go to state 4
+
+state 9
+
+    (6) temporal_expression -> G LBRACKET . NUMBER COMMA NUMBER RBRACKET LPAREN expression RPAREN
+
+    NUMBER          shift and go to state 12
+
+
+state 10
+
+    (7) temporal_expression -> F LBRACKET . NUMBER COMMA NUMBER RBRACKET LPAREN expression RPAREN
+
+    NUMBER          shift and go to state 13
+
+
+state 11
+
+    (2) expression -> expression AND term .
+
+    AND             reduce using rule 2 (expression -> expression AND term .)
+    $end            reduce using rule 2 (expression -> expression AND term .)
+    RPAREN          reduce using rule 2 (expression -> expression AND term .)
+
+
+state 12
+
+    (6) temporal_expression -> G LBRACKET NUMBER . COMMA NUMBER RBRACKET LPAREN expression RPAREN
+
+    COMMA           shift and go to state 14
+
+
+state 13
+
+    (7) temporal_expression -> F LBRACKET NUMBER . COMMA NUMBER RBRACKET LPAREN expression RPAREN
+
+    COMMA           shift and go to state 15
+
+
+state 14
+
+    (6) temporal_expression -> G LBRACKET NUMBER COMMA . NUMBER RBRACKET LPAREN expression RPAREN
+
+    NUMBER          shift and go to state 16
+
+
+state 15
+
+    (7) temporal_expression -> F LBRACKET NUMBER COMMA . NUMBER RBRACKET LPAREN expression RPAREN
+
+    NUMBER          shift and go to state 17
+
+
+state 16
+
+    (6) temporal_expression -> G LBRACKET NUMBER COMMA NUMBER . RBRACKET LPAREN expression RPAREN
+
+    RBRACKET        shift and go to state 18
+
+
+state 17
+
+    (7) temporal_expression -> F LBRACKET NUMBER COMMA NUMBER . RBRACKET LPAREN expression RPAREN
+
+    RBRACKET        shift and go to state 19
+
+
+state 18
+
+    (6) temporal_expression -> G LBRACKET NUMBER COMMA NUMBER RBRACKET . LPAREN expression RPAREN
+
+    LPAREN          shift and go to state 20
+
+
+state 19
+
+    (7) temporal_expression -> F LBRACKET NUMBER COMMA NUMBER RBRACKET . LPAREN expression RPAREN
+
+    LPAREN          shift and go to state 21
+
+
+state 20
+
+    (6) temporal_expression -> G LBRACKET NUMBER COMMA NUMBER RBRACKET LPAREN . expression RPAREN
+    (2) expression -> . expression AND term
+    (3) expression -> . term
+    (4) term -> . temporal_expression
+    (5) term -> . PROP
+    (6) temporal_expression -> . G LBRACKET NUMBER COMMA NUMBER RBRACKET LPAREN expression RPAREN
+    (7) temporal_expression -> . F LBRACKET NUMBER COMMA NUMBER RBRACKET LPAREN expression RPAREN
+
+    PROP            shift and go to state 5
+    G               shift and go to state 6
+    F               shift and go to state 7
+
+    expression                     shift and go to state 22
+    term                           shift and go to state 3
+    temporal_expression            shift and go to state 4
+
+state 21
+
+    (7) temporal_expression -> F LBRACKET NUMBER COMMA NUMBER RBRACKET LPAREN . expression RPAREN
+    (2) expression -> . expression AND term
+    (3) expression -> . term
+    (4) term -> . temporal_expression
+    (5) term -> . PROP
+    (6) temporal_expression -> . G LBRACKET NUMBER COMMA NUMBER RBRACKET LPAREN expression RPAREN
+    (7) temporal_expression -> . F LBRACKET NUMBER COMMA NUMBER RBRACKET LPAREN expression RPAREN
+
+    PROP            shift and go to state 5
+    G               shift and go to state 6
+    F               shift and go to state 7
+
+    expression                     shift and go to state 23
+    term                           shift and go to state 3
+    temporal_expression            shift and go to state 4
+
+state 22
+
+    (6) temporal_expression -> G LBRACKET NUMBER COMMA NUMBER RBRACKET LPAREN expression . RPAREN
+    (2) expression -> expression . AND term
+
+    RPAREN          shift and go to state 24
+    AND             shift and go to state 8
+
+
+state 23
+
+    (7) temporal_expression -> F LBRACKET NUMBER COMMA NUMBER RBRACKET LPAREN expression . RPAREN
+    (2) expression -> expression . AND term
+
+    RPAREN          shift and go to state 25
+    AND             shift and go to state 8
+
+
+state 24
+
+    (6) temporal_expression -> G LBRACKET NUMBER COMMA NUMBER RBRACKET LPAREN expression RPAREN .
+
+    AND             reduce using rule 6 (temporal_expression -> G LBRACKET NUMBER COMMA NUMBER RBRACKET LPAREN expression RPAREN .)
+    $end            reduce using rule 6 (temporal_expression -> G LBRACKET NUMBER COMMA NUMBER RBRACKET LPAREN expression RPAREN .)
+    RPAREN          reduce using rule 6 (temporal_expression -> G LBRACKET NUMBER COMMA NUMBER RBRACKET LPAREN expression RPAREN .)
+
+
+state 25
+
+    (7) temporal_expression -> F LBRACKET NUMBER COMMA NUMBER RBRACKET LPAREN expression RPAREN .
+
+    AND             reduce using rule 7 (temporal_expression -> F LBRACKET NUMBER COMMA NUMBER RBRACKET LPAREN expression RPAREN .)
+    $end            reduce using rule 7 (temporal_expression -> F LBRACKET NUMBER COMMA NUMBER RBRACKET LPAREN expression RPAREN .)
+    RPAREN          reduce using rule 7 (temporal_expression -> F LBRACKET NUMBER COMMA NUMBER RBRACKET LPAREN expression RPAREN .)
+
