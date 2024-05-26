@@ -4,7 +4,7 @@ import numpy as np
 import random
 import numpy.linalg as la
 from sympy import symbols, diff, sympify, Max
-
+import copy
 
 class STLParser:
     
@@ -31,6 +31,8 @@ class STLParser:
     
     @staticmethod
     def extract_time_intervals(formula):
+        parts = [part.strip() for part in re.split(r'\s*&\s*', formula)]
+
         # Pattern to find temporal operators followed by intervals in square brackets
         pattern = r'(G|F)_\[(\d+),(\d+)\]'
         matches = re.finditer(pattern, formula)
@@ -41,9 +43,40 @@ class STLParser:
             t1 = int(match.group(2))
             t2 = int(match.group(3))
             intervals.append((operator, t1, t2))
-
         return intervals
     
+    @staticmethod
+    def extract_time_intervals2(formula):
+        parts = [part.strip() for part in re.split(r'\s*&\s*', formula)]
+        intervals = []
+        for part in parts:
+            # Pattern to find temporal operators followed by intervals in square brackets
+            pattern = r'(G|F)_\[(\d+(?:\.\d+)?),(\d+(?:\.\d+)?)\]'
+            matches = re.findall(pattern, part)
+            intervals.append(matches)
+        
+        return intervals
+    
+    @staticmethod
+    def rename_F_operators(formula_intervals):
+        renamed_formula_intervals = []
+        f_count = 0  # Counter for 'F' operators
+
+        # Iterate through each row
+        for row in formula_intervals:
+            new_row = []
+            # Iterate through each tuple in the row
+            for operator, start, end in row:
+                if operator == 'F':
+                    f_count += 1  # Increment for each 'F'
+                    new_operator = f'F{f_count}'  # Rename 'F' to 'F1', 'F2', etc.
+                    new_row.append((new_operator, start, end))
+                else:
+                    new_row.append((operator, start, end))
+            renamed_formula_intervals.append(new_row)
+
+        return renamed_formula_intervals
+
     @staticmethod
     def time_horizon(intervals):
     # Find the maximum time horizon from the intervals
@@ -75,6 +108,7 @@ class STLParser:
         tau_nums = 1+ len(predicates) + formula.count('G') + formula.count('F')
         return tau_nums
     
+    @staticmethod
     def format_predicates(predicates):
         #Bringing the predicates into optimisation function form
         formatted_predicates = [f'Max(0,{pred})**2' for pred in predicates]
@@ -84,7 +118,6 @@ class STLParser:
 
         return optimisation_function
 
-
     @staticmethod
     def return_function(formula):
         formula = STLParser.remove_spaces(formula)
@@ -92,11 +125,13 @@ class STLParser:
         split_formula = STLParser.split_formula(formula)
         find_max_agent = STLParser.find_max_agent(formula)
         time_intervals = STLParser.extract_time_intervals(formula)
+        time_intervals2 = STLParser.extract_time_intervals2(formula)
+        renamed_formula_intervals = STLParser.rename_F_operators(time_intervals2)
         time_horizon = STLParser.time_horizon(time_intervals)
         predicates = STLParser.extract_predicates(formula)
         tau_nums = STLParser.tau_nums(formula, predicates)
         optimisation_function = STLParser.format_predicates(predicates)
-        return formula, count_and_operators, split_formula, find_max_agent, time_intervals, time_horizon, predicates, tau_nums, optimisation_function
+        return formula, count_and_operators, split_formula, find_max_agent, time_intervals, time_intervals2,  renamed_formula_intervals, time_horizon, predicates, tau_nums, optimisation_function
         
 class UserInput:
     
@@ -127,7 +162,7 @@ class UserInput:
 
 class MAPS2:
     
-    def __init__(self, N, optimisation_function, tau, Tstar, tstar, number_of_robots, extract_time_intervals, predicates, time_horizon):
+    def __init__(self, N, optimisation_function, tau, Tstar, tstar, number_of_robots, extract_time_intervals, extract_time_intervals2, renamed_formula_intervals, predicates, time_horizon, robust):
         self.N = N
         self.optimisation_function = optimisation_function
         self.tau = tau
@@ -135,38 +170,119 @@ class MAPS2:
         self.tstar = tstar
         self.number_of_robots = number_of_robots
         self.extract_time_intervals = extract_time_intervals
+        self.extract_time_intervals2 = extract_time_intervals2
+        self.renamed_formula_intervals = renamed_formula_intervals
         self.predicates = predicates
         self.time_horizon = time_horizon
+        self.robust = robust
+        self.last_vd = np.zeros(shape=(len(self.extract_time_intervals), 2))
+        
 
     def Interpolate(self, midTime, idx):
         N_mid = np.hstack((midTime, np.zeros(self.number_of_robots)))
-        for i in range(1, number_of_robots+1):
+        for i in range(1, self.number_of_robots+1):
             N_mid[i] = (self.N[idx,i] - self.N[idx-1,i]) * (midTime - self.N[idx-1,0]) / (self.N[idx,0]-self.N[idx-1,0]) + self.N[idx-1,i]
         return N_mid 
     
-    def validity_domain(self):
-        vd = np.zeros(shape=(len(self.extract_time_intervals), 2))
-        new_tau = tau[-4:]
-        for i, interval in enumerate(self.extract_time_intervals):
-            if interval[0] == 'G' and new_tau[i] == -1:
-                vd[i] = [interval[1], interval[2]]
-            elif interval[0] == 'F' and new_tau[i] == -1:
-                vd[i] = [interval[1], interval[2]]
-            elif interval[0] == 'G' and new_tau[i] == 1:
-                vd[i] = [0, 0]
-            elif interval[0] == 'F' and new_tau[i] == 1:
-                vd[i] = [0, 0]
-        return vd
+    def InitialSamples(self):
+        for j in range(1000):
+            midTime = self.time_horizon*random.random()
+            idx = self.N[:,0].searchsorted(midTime)
+            N_mid = self.Interpolate(midTime, idx)
+            self.N = np.concatenate((self.N[:idx,], [N_mid], self.N[idx:, ]))
+        return self.N 
+
+    def vd1(self):
+        self.vd = np.zeros(shape=(len(self.extract_time_intervals2), 2))
+        F_index = 0
+        index = 0
+        for row_index, row in enumerate(self.extract_time_intervals2):
+            if len(row) == 1:
+                operator = row[0][0]
+                start_time = row[0][1]
+                end_time = row[0][2]
+                if operator == 'G':
+                    self.vd[row_index] = [float(start_time), float(end_time)]
+                    index += 1
+                elif operator.startswith('F'):
+                    F_index += 1
+                    if self.tau[index] == 1:
+                        self.vd[row_index] = [0,0]
+                    else:
+                        self.vd[row_index] = [float(start_time), float(end_time)]
+                    index += 1
+            else:
+                operator = row[0][0]
+                start_time = row[0][1]
+                end_time = row[0][2]
+                if operator == 'G':
+                    if self.tstar[F_index] == 0:
+                        a = float(start_time)
+                    else:
+                        a = self.tstar[F_index]
+                    self.vd[row_index] = [a+float(row[1][1]), a+float(row[1][2])]
+                    if a+float(row[1][2]) > float(end_time)+float(row[1][2]):
+                        self.vd[row_index] = [0, 0] 
+                    F_index += 1
+                    index += 2
+                elif operator.startswith('F'):
+                    if self.tstar[F_index] == 0:
+                        self.vd[row_index] = [float(start_time), float(end_time)+float(row[1][2])]
+                    else:
+                        self.vd[row_index] = [self.tstar[F_index],self.tstar[F_index] +float(row[1][2])]
+                    F_index += 1
+                    index += 2
+        return self.vd
+
+                
+    def SatisfactionVariable(self, midTime, x0):
+        index = 0
+        F_index = 0
+        for row_index, row in enumerate(self.extract_time_intervals2):
+            if len(row) == 1:
+                operator = row[0][0]
+                active = sympify(self.predicates[row_index])
+                active_subs = active.subs({'x'+str(j): x0[j-1] for j in range(1,self.number_of_robots+1)})
+                if operator == 'G':
+                    if self.vd[row_index][0] <= midTime <= self.vd[row_index][1]:
+                        if active_subs <= 0.05:
+                            pass
+                elif operator.startswith('F'):
+                    if self.vd[row_index][0] <= midTime <= self.vd[row_index][1]:
+                        active = sympify(self.predicates[row_index])
+                        active_subs = active.subs({'x'+str(j): x0[j-1] for j in range(1,self.number_of_robots+1)})
+                        if active_subs <= 0.05:
+                            self.tau[index] = 1
+                            self.tstar[F_index] = midTime
+                    F_index += 1
+                index += 1
+            else:
+                operator = row[0][0]
+                active = sympify(self.predicates[row_index])
+                active_subs = active.subs({'x'+str(j): x0[j-1] for j in range(1,self.number_of_robots+1)})
+                if operator == 'G':
+                    if self.vd[row_index][0] <= midTime <= self.vd[row_index][1]:
+                        if active_subs <= 0.05:
+                            self.tstar[F_index] = midTime
+                    F_index += 1
+                elif operator.startswith('F'):
+                    if self.vd[row_index][0] <= midTime <= self.vd[row_index][1]:
+                        if active_subs <= 0.05:
+                            pass
+                    F_index += 1
+                
 
     def activation_variable(self, midTime, agent):
-        lambda1 = np.zeros(len(extract_time_intervals)+1)
-        lambda2 = np.zeros(len(extract_time_intervals)+1)
+        vd = self.vd1()
+        lambda1 = np.zeros(len(self.extract_time_intervals)+1)
+        lambda2 = np.zeros(len(self.extract_time_intervals)+1)
         agent_state = f'x{agent}'
         # Decides which predicates are active at sampled time midTime
-        for i, interval in enumerate(extract_time_intervals):
-            if interval[1] <= midTime <= interval[2]:
+
+        for i, interval in enumerate(vd):
+            if interval[0] <= midTime <= interval[1]:
                 lambda1[i] = 1
-        for i, predicate in enumerate(predicates):
+        for i, predicate in enumerate(self.predicates):
             if agent_state in predicate:
                 lambda2[i] = 1
         lambda_ = np.logical_and(lambda1, lambda2)
@@ -174,7 +290,7 @@ class MAPS2:
         return lambda_
 
     def activation_substitution(self, activation_lambdas):
-        active_optimisation_function = optimisation_function
+        active_optimisation_function = self.optimisation_function
         for i, value in enumerate(activation_lambdas, 1):  # start counting from 1 for lambda1, lambda2, etc.
             active_optimisation_function = active_optimisation_function.replace(f'lambda{i}', str(value)+'*')
         return active_optimisation_function
@@ -182,17 +298,16 @@ class MAPS2:
     def grad(self, x0, midTime, agent):
         activation_lambdas = self.activation_variable(midTime, agent)
         active_optimisation_function = self.activation_substitution(activation_lambdas)
-        symbol_names = ' '.join('x'+str(j) for j in range(1,number_of_robots+1))
+        symbol_names = ' '.join('x'+str(j) for j in range(1,self.number_of_robots+1))
         symbols_tuple = symbols(symbol_names, real=True)
         expr = sympify(active_optimisation_function)
-        diff_expr = diff(expr, "x"+str(agent)).subs({'x'+str(j): x0[j-1] for j in range(1,number_of_robots+1)})
+        diff_expr = diff(expr, "x"+str(agent)).subs({'x'+str(j): x0[j-1] for j in range(1,self.number_of_robots+1)})
         return diff_expr
     
     def TrajectoryShaping(self):
-        for j in range(10000):
-        #while self.sv(0)<1:
-            # random.seed(j) # Generates same random number for all agents
-            midTime = time_horizon*random.random() # Uses the random number generator to generate 'time'
+        for j in range(100):
+            self.robust = [10/(j+1)]*(len(self.predicates))
+            midTime = self.time_horizon*random.random() # Uses the random number generator to generate 'time'
             idx = self.N[:,0].searchsorted(midTime) # Searchsorted has complexity O(N)
             N_mid = self.Interpolate(midTime, idx) # Run linear interpolation here to give initial conditions for EXTRA
             N_gradient = np.hstack((midTime, self.GradientDescent(N_mid[1:], midTime)))
@@ -201,24 +316,23 @@ class MAPS2:
         self.plotGraph()
 
     def GradientDescent(self, x0, midTime):
-        t = 0.5
-        alpha = 0.3 # alpha \in (0,0.5)
-        beta = 0.5 # beta \in (0,1)
+        t = 0.01
         k = 0
         while True:
-            grad = np.array([self.grad(x0, midTime, j) for j in range(1,number_of_robots+1)])
+            grad = np.array([self.grad(x0, midTime, j) for j in range(1,self.number_of_robots+1)])
             deltax = - grad 
             x0 = x0 + t * deltax 
             k += 1
             grad = np.array([float(value) for value in grad])
-            #print('grad', grad)
             if  la.norm(grad) <= 0.001 or k >= 100:
+                if la.norm(grad) <= 0.001:
+                    self.SatisfactionVariable(midTime, x0)
                 break
         return x0
     
+    
     def plotGraph(self):
         # Plots the graph
-
         start_marker = "xr"
         end_marker = "bo"
         line_styles = ['b-', 'g-', 'm-', 'k-', 'c-', 'y-', 'r-', 'purple-']  
@@ -228,7 +342,6 @@ class MAPS2:
             # Plot start and end points
             plt.plot(self.N[0, 0], self.N[0, i], start_marker)
             plt.plot(self.N[-1, 0], self.N[-1, i], end_marker)
-            
             plt.plot(self.N[:, 0], self.N[:, i], line_styles[i % len(line_styles)], label=f'Agent {i}')
 
         # Set plot limits, labels, and legend
@@ -238,42 +351,3 @@ class MAPS2:
         plt.legend()
         plt.grid(True)
         plt.show()
-
-
-# Create the parse tree
-formula = 'G_[1,2](x1<=2) & F_[5,6](x2>=8) & G_[3,4](x3>=3) & F_[7,8](x4<=8) & G_[2,3](x4>=8) & F_[8,9](x5<=1)'
-formula, count_and_operators, split_formula, number_of_robots, extract_time_intervals, time_horizon, predicates, tau_nums, optimisation_function = STLParser.return_function(formula)
-G_nums = formula.count('G')
-F_nums = formula.count('F')
-#dimensions = UserInput.get_space_dimensions()
-#initial_conditions = UserInput.get_initial_conditions(number_of_robots, dimensions)
-initial_conditions = [3, 5, 2, 9, 8]
-#print(formula)
-#print(count_and_operators)
-#print(split_formula)
-#print(number_of_robots)
-#print(extract_time_intervals)
-#print(time_horizon)
-#print(predicates)
-#print(tau_nums)
-#print(G_nums)
-#print(F_nums)
-#print(optimisation_function)
-t_0 = 0
-t_end = time_horizon+0.01
-
-goal_condition = []
-initial_condition = np.insert(initial_conditions,0, t_0)
-goal_condition =    np.insert(initial_conditions,0, t_end)
-tau = [-1]*tau_nums
-Tstar = np.zeros(F_nums)
-tsar = np.zeros(F_nums)
-
-N = np.vstack((initial_condition, goal_condition))
-A = MAPS2(N,optimisation_function, tau,Tstar,tsar, number_of_robots, extract_time_intervals, predicates, time_horizon)
-#A.create_gradient_functions(3)
-#diff_expr = A.grad(optimisation_function, [1,2,3], 3, 1, 10, 1)
-#print(diff_expr)
-A.TrajectoryShaping()
-
-
