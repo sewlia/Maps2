@@ -1,10 +1,11 @@
-# MAPS $ ^2 $: Multi-Robot Autonomous Motion Planning under Signal Temporal Logic Specifications
+# MAPS $^2$: Multi-Robot Autonomous Motion Planning under Signal Temporal Logic Specifications
 
 [Preprint Link](https://arxiv.org/pdf/2309.05632)
 
-The MAPS $ ^2 $ algorithm generates trajectories for multi-robot system under signal temporal logic constraints. The types of STL formulas currently supported are expressed as: $$ \varphi = \mu\ |\ \mathcal{G}_{[a,b]} \mu \ |\ \mathcal{F}_{[a,b]} \mu \ |\ \varphi_1 \land \varphi_2 \ |\ \mathcal{G}_{[a_1,b_1]}\mathcal{F}_{[a_2,b_2]} \mu \ |\ \mathcal{F}_{[a_1,b_1]}\mathcal{G}_{[a_2,b_2]} \mu $$
+The MAPS $ ^2 $ algorithm generates trajectories for multi-robot system under signal temporal logic constraints. The types of STL formulas currently supported are expressed as: 
+$`\varphi=\mu\ |\ \mathcal{G}_{[a,b]} \mu \ |\ \mathcal{F}_{[a,b]} \mu \ |\ \varphi_1 \land \varphi_2 \ |\ \mathcal{G}_{[a_1,b_1]}\mathcal{F}_{[a_2,b_2]} \mu \ |\ \mathcal{F}_{[a_1,b_1]}\mathcal{G}_{[a_2,b_2]} \mu`$
 
-where $ \mu $ is any nonlinear predicate function predicate function.
+where $\mu$ is any nonlinear predicate function predicate function.
 
 ## Prerequisites
 
