@@ -292,7 +292,7 @@ class MAPS2:
     def activation_substitution(self, activation_lambdas):
         active_optimisation_function = self.optimisation_function
         for i, value in enumerate(activation_lambdas, 1):  # start counting from 1 for lambda1, lambda2, etc.
-            active_optimisation_function = active_optimisation_function.replace(f'lambda{i}', str(value)+'*')
+            active_optimisation_function = active_optimisation_function.replace('lambda' + str(i), str(value)+'*', 1)
         return active_optimisation_function
 
     def grad(self, x0, midTime, agent):
@@ -313,6 +313,8 @@ class MAPS2:
             N_gradient = np.hstack((midTime, self.GradientDescent(N_mid[1:], midTime)))
             self.N = np.concatenate((self.N[:idx,], [N_gradient], self.N[idx:, ]))
             print(j)
+        # Uncomment the line below to save the trajectory and plot it
+        return self.N
         self.plotGraph()
 
     def GradientDescent(self, x0, midTime):
@@ -345,9 +347,11 @@ class MAPS2:
             plt.plot(self.N[:, 0], self.N[:, i], line_styles[i % len(line_styles)], label=f'Agent {i}')
 
         # Set plot limits, labels, and legend
-        plt.axis([0, self.N[-1,0], 0, 10])
+        plt.axis([0, self.N[-1,0], -5, 5])
         plt.xlabel('time(s)')
         plt.ylabel('x')
         plt.legend()
         plt.grid(True)
         plt.show()
+        np.savetxt("/Users/mayanksewlia/My Drive/NonlinearMPCManipulation/HullLeaderFollower/trajectories.csv", self.N, delimiter = ",")
+
